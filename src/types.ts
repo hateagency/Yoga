@@ -26,6 +26,8 @@ export interface Config {
   showPoseTitle: boolean;
   showBrand: boolean;
   geminiVoice: string;
+  roomPrompt: string;
+  matPrompt: string;
 }
 
 export interface Scene {
@@ -41,11 +43,19 @@ export interface Scene {
   timer_value: number | null;
 }
 
+export interface SavedCharacter {
+  id: string;
+  name: string;
+  desc: string;
+  ref: string | null;
+}
+
 export interface AppState {
   config: Config;
   scenes: Scene[];
-  images: Record<number, string>;
-  audio: Record<number, string>;
+  images: Record<string, string>;
+  audio: Record<string, string>;
+  savedCharacters?: SavedCharacter[];
 }
 
 declare global {

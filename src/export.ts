@@ -38,6 +38,15 @@ export async function downloadProjectZip(state: AppState) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const safe = (str: string) => String(str || 'file').replace(/[^a-zA-Z0-9а-яА-Я_-]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 
+  if (imgFolder) {
+    if (state.images['room']) {
+      imgFolder.file(`00_room_background.png`, state.images['room'].split(',')[1], { base64: true });
+    }
+    if (state.images['mat']) {
+      imgFolder.file(`00_yoga_mat.png`, state.images['mat'].split(',')[1], { base64: true });
+    }
+  }
+
   state.scenes.forEach(s => {
     const img = state.images[s.id];
     const aud = state.audio[s.id];

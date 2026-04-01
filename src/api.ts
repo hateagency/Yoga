@@ -53,8 +53,9 @@ Rules:
 2. screen_text should be optimized for on-screen overlay.
 3. visual_prompt must mention composition, pose details, and keep the frame clean for text overlays.
 4. intro and outro prompts should be separate from pose scenes.
-5. capcut_note must be practical and simple.
-6. timer_value should be null for intro and outro, and equal to pose duration for pose scenes.`;
+5. ALL scenes (including intro and outro) MUST feature the character(s). The visual_prompt for intro and outro must describe the character's action (e.g., waving hello, bowing), NOT the room.
+6. capcut_note must be practical and simple.
+7. timer_value should be null for intro and outro, and equal to pose duration for pose scenes.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-3.1-pro-preview',
@@ -67,7 +68,12 @@ Rules:
 
   if (!response.text) throw new Error('Empty response from Gemini');
   
-  const data = JSON.parse(response.text);
+  let text = response.text.trim();
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+  
+  const data = JSON.parse(text);
   return data.scenes.map((s: any, i: number) => ({
     id: s.id || i + 1,
     section: s.section || 'pose',
@@ -82,27 +88,91 @@ Rules:
   }));
 }
 
-export async function generateImage(config: Config, scene: Scene): Promise<string> {
+export async function generateCharacterPrompt(config: Config, imageBase64: string): Promise<string> {
+  const apiKey = config.geminiKey || process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('Gemini API Key is required');
+
+  const ai = new GoogleGenAI({ apiKey });
+  const [mime, data] = imageBase64.split(',');
+  const mimeType = mime.split(':')[1].split(';')[0];
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3.1-pro-preview',
+    contents: [
+      { inlineData: { data, mimeType } },
+      { text: "Describe this character in detail for an image generation prompt. Focus on physical appearance, clothing, hair, and style. Keep it under 30 words." }
+    ]
+  });
+
+  return response.text || '';
+}
+
+function removeGreenScreen(base64: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(base64);
+      
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        
+        // Simple green screen removal
+        if (g > 100 && g > r * 1.3 && g > b * 1.3) {
+          data[i+3] = 0; // Set alpha to 0 (transparent)
+        }
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = base64;
+  });
+}
+
+export async function generateImage(config: Config, scene: Scene | null, type: 'room' | 'mat' | 'character' = 'character'): Promise<string> {
   const apiKey = config.geminiKey || process.env.API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('Gemini API Key is required');
 
   const ai = new GoogleGenAI({ apiKey });
 
-  const prompt = `${scene.visual_prompt}, ${config.imageStyle}, leave clean space for overlay text, no text rendered into the image`;
-  
+  let prompt = '';
   const parts: any[] = [];
+
+  if (type === 'room') {
+    prompt = `${config.roomPrompt || 'A bright, clean kids yoga studio room, front view, flat wall facing the camera, completely empty, no details, no furniture, simple clean background'}, ${config.imageStyle}, empty room, no characters, clean background`;
+  } else if (type === 'mat') {
+    prompt = `${config.matPrompt || 'A single solid color kids yoga mat lying flat on the floor, viewed from the front, perspective receding towards the horizon, completely empty, no people'}, ${config.imageStyle}, isolated on a solid bright green background #00FF00, no characters`;
+  } else {
+    // Character
+    prompt = `${scene?.visual_prompt}, character centered in the frame, full body visible, ${config.imageStyle}, isolated on a solid bright green background #00FF00, no text rendered into the image`;
+    
+    // Add reference images if they exist
+    if (config.char1Ref) {
+      const [mime, data] = config.char1Ref.split(',');
+      const mimeType = mime.split(':')[1].split(';')[0];
+      parts.push({ inlineData: { data, mimeType } });
+    }
+    if (config.char2Ref && config.flowType !== 'solo') {
+      const [mime, data] = config.char2Ref.split(',');
+      const mimeType = mime.split(':')[1].split(';')[0];
+      parts.push({ inlineData: { data, mimeType } });
+    }
+  }
   
-  // Add reference images if they exist
-  if (config.char1Ref) {
-    const [mime, data] = config.char1Ref.split(',');
-    const mimeType = mime.split(':')[1].split(';')[0];
-    parts.push({ inlineData: { data, mimeType } });
-  }
-  if (config.char2Ref && config.flowType !== 'solo') {
-    const [mime, data] = config.char2Ref.split(',');
-    const mimeType = mime.split(':')[1].split(';')[0];
-    parts.push({ inlineData: { data, mimeType } });
-  }
+  // Add a random variation seed to ensure "Remake" generates a new image
+  prompt += `\n\n(Variation seed: ${Math.random()})`;
   
   parts.push({ text: prompt });
 
@@ -125,7 +195,11 @@ export async function generateImage(config: Config, scene: Scene): Promise<strin
 
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
-      return `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+      const base64 = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
+      if (type === 'character' || type === 'mat') {
+        return await removeGreenScreen(base64);
+      }
+      return base64;
     }
   }
 
