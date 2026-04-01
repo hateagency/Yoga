@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { get, set } from 'idb-keyval';
-import { Settings, Folder, FileText, Image as ImageIcon, Mic, LayoutTemplate, Download, Upload, X, Loader2, Play, Sparkles } from 'lucide-react';
+import { Settings, Folder, FileText, Image as ImageIcon, Mic, LayoutTemplate, Download, Upload, X, Loader2, Play, Sparkles, RefreshCw } from 'lucide-react';
 import { Config, Scene, AppState, SavedCharacter } from './types';
 import { generateScript, generateImage, generateAudio, generateCharacterPrompt } from './api';
 import { downloadProjectZip } from './export';
@@ -497,13 +497,22 @@ export default function App() {
                   <div className="p-4 flex flex-col gap-3 bg-neutral-900">
                     <div className="flex items-center justify-between">
                       <div className="font-medium text-sm">Комната (Фон)</div>
-                      <button 
-                        onClick={() => handleGenerateImage(null, 'room')}
-                        disabled={!!generatingImages['room']}
-                        className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
-                      >
-                        {generatingImages['room'] ? <><Loader2 className="w-3 h-3 animate-spin"/> Генерация...</> : images['room'] ? 'Переделать' : 'Создать'}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => updateConfig('roomPrompt', 'A bright, clean kids yoga studio room, front view, flat wall facing the camera, completely empty, no details, no furniture, simple clean background')}
+                          className="text-xs text-neutral-400 hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                          title="Сбросить промпт на оптимальный"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Сбросить
+                        </button>
+                        <button 
+                          onClick={() => handleGenerateImage(null, 'room')}
+                          disabled={!!generatingImages['room']}
+                          className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
+                        >
+                          {generatingImages['room'] ? <><Loader2 className="w-3 h-3 animate-spin"/> Генерация...</> : images['room'] ? 'Переделать' : 'Создать'}
+                        </button>
+                      </div>
                     </div>
                     <textarea value={config.roomPrompt || ''} onChange={e => updateConfig('roomPrompt', e.target.value)} placeholder="Промпт для комнаты..." className="w-full h-16 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 resize-none" />
                   </div>
@@ -530,13 +539,22 @@ export default function App() {
                   <div className="p-4 flex flex-col gap-3 bg-neutral-900">
                     <div className="flex items-center justify-between">
                       <div className="font-medium text-sm">Коврик для йоги</div>
-                      <button 
-                        onClick={() => handleGenerateImage(null, 'mat')}
-                        disabled={!!generatingImages['mat']}
-                        className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
-                      >
-                        {generatingImages['mat'] ? <><Loader2 className="w-3 h-3 animate-spin"/> Генерация...</> : images['mat'] ? 'Переделать' : 'Создать'}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => updateConfig('matPrompt', 'A single solid color kids yoga mat lying flat on the floor, viewed horizontally from the side, wide orientation parallel to the camera, completely empty, no people')}
+                          className="text-xs text-neutral-400 hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                          title="Сбросить промпт на оптимальный"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Сбросить
+                        </button>
+                        <button 
+                          onClick={() => handleGenerateImage(null, 'mat')}
+                          disabled={!!generatingImages['mat']}
+                          className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
+                        >
+                          {generatingImages['mat'] ? <><Loader2 className="w-3 h-3 animate-spin"/> Генерация...</> : images['mat'] ? 'Переделать' : 'Создать'}
+                        </button>
+                      </div>
                     </div>
                     <textarea value={config.matPrompt || ''} onChange={e => updateConfig('matPrompt', e.target.value)} placeholder="Промпт для коврика..." className="w-full h-16 bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 resize-none" />
                   </div>

@@ -127,9 +127,25 @@ function removeGreenScreen(base64: string): Promise<string> {
         const g = data[i+1];
         const b = data[i+2];
         
-        // Simple green screen removal
-        if (g > 100 && g > r * 1.3 && g > b * 1.3) {
-          data[i+3] = 0; // Set alpha to 0 (transparent)
+        // Advanced green screen removal with spill suppression
+        const maxOther = Math.max(r, b);
+        const greenness = g - maxOther;
+        
+        if (greenness > 10) {
+          let alpha = 255;
+          if (greenness > 40) {
+            alpha = 0; // Fully transparent background
+          } else {
+            // Smooth transition for anti-aliased edges
+            alpha = 255 - ((greenness - 10) * (255 / 30));
+          }
+          
+          data[i+3] = Math.min(data[i+3], alpha);
+          
+          // Spill suppression: remove green tint from semi-transparent edge pixels
+          if (alpha > 0 && alpha < 255) {
+            data[i+1] = maxOther; // Cap green to remove the green fringe
+          }
         }
       }
       
@@ -153,10 +169,10 @@ export async function generateImage(config: Config, scene: Scene | null, type: '
   if (type === 'room') {
     prompt = `${config.roomPrompt || 'A bright, clean kids yoga studio room, front view, flat wall facing the camera, completely empty, no details, no furniture, simple clean background'}, ${config.imageStyle}, empty room, no characters, clean background`;
   } else if (type === 'mat') {
-    prompt = `${config.matPrompt || 'A single solid color kids yoga mat lying flat on the floor, viewed from the front, perspective receding towards the horizon, completely empty, no people'}, ${config.imageStyle}, isolated on a solid bright green background #00FF00, no characters`;
+    prompt = `${config.matPrompt || 'A single solid color kids yoga mat lying flat on the floor, viewed horizontally from the side, wide orientation parallel to the camera, completely empty, no people'}, ${config.imageStyle}, isolated on a pure solid bright green background #00FF00, absolutely no shadows on the background, no gradients, no characters`;
   } else {
     // Character
-    prompt = `${scene?.visual_prompt}, character centered in the frame, full body visible, ${config.imageStyle}, isolated on a solid bright green background #00FF00, no text rendered into the image`;
+    prompt = `${scene?.visual_prompt}, character centered in the frame, full body visible, ${config.imageStyle}, isolated on a pure solid bright green background #00FF00, absolutely no shadows on the background, no gradients, no text rendered into the image`;
     
     // Add reference images if they exist
     if (config.char1Ref) {
