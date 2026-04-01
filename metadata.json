@@ -1,0 +1,5 @@
+{
+  "name": "AI Character Studio",
+  "description": "Современное приложение для генерации персонажей с использованием референсов и Gemini API.",
+  "requestFramePermissions": []
+}
